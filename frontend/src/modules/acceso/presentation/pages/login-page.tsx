@@ -14,7 +14,7 @@ export function LoginPage() {
       <div className="absolute inset-0">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover">
           <source
-            src="https://videos.pexels.com/video-files/3066460/3066460-uhd_2732_1440_24fps.mp4"
+            src="https://videos.pexels.com/video-files/33402994/14218773_2560_1440_25fps.mp4"
             type="video/mp4"
           />
         </video>
