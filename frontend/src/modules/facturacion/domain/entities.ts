@@ -186,6 +186,17 @@ export function nombreCliente(factura: Pick<Factura, "tipoReceptor" | "clienteNo
   return factura.tipoReceptor === "consumidor_final" ? "Consumidor final" : factura.clienteNombres || "Cliente";
 }
 
+export function codigoAmbienteSri(clave?: string | null, xml?: string | null, entornoEmpresa?: string): string {
+  if (clave && clave.length >= 24 && (clave[23] === "1" || clave[23] === "2")) return clave[23];
+  const match = xml?.match(/<ambiente>\s*([12])\s*<\/ambiente>/i);
+  if (match?.[1]) return match[1];
+  return entornoEmpresa === "2" ? "2" : "1";
+}
+
+export function etiquetaAmbienteSri(codigo: string): string {
+  return codigo === "2" ? "PRODUCCIÓN" : "PRUEBAS";
+}
+
 export function subtotalFactura(factura: Pick<Factura, "subtotal15" | "subtotal5" | "subtotal0" | "subtotalObjeto" | "subtotalExento" | "subtotal">): number {
   if (typeof factura.subtotal === "number") return factura.subtotal;
   return factura.subtotal15 + factura.subtotal5 + factura.subtotal0 + factura.subtotalObjeto + factura.subtotalExento;

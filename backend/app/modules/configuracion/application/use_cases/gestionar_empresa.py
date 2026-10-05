@@ -2,6 +2,7 @@ from app.modules.configuracion.application.dto import ActualizarEmpresaCommand, 
 from app.modules.configuracion.application.ports.repositorios import EmpresaConfigRepository
 from app.modules.configuracion.domain.entities import EmpresaConfig
 from app.modules.configuracion.domain.exceptions import DatosEmpresaInvalidos, EmpresaNoEncontrada
+from app.modules.configuracion.domain.ambiente import codigo_ambiente
 
 
 class ObtenerEmpresaUseCase:
@@ -28,14 +29,15 @@ class ActualizarEmpresaUseCase:
             raise DatosEmpresaInvalidos("El RUC debe tener 13 dígitos")
         if len(command.nombre.strip()) < 2:
             raise DatosEmpresaInvalidos("El nombre de la empresa es obligatorio")
-        if command.entorno_sri not in {"1", "2"}:
+        entorno = codigo_ambiente(command.entorno_sri)
+        if entorno not in {"1", "2"}:
             raise DatosEmpresaInvalidos("El entorno SRI debe ser 1 (pruebas) o 2 (producción)")
         empresa.nombre = command.nombre.strip()
         empresa.ruc = ruc
         empresa.direccion = command.direccion.strip()
         empresa.telefono = command.telefono.strip() if command.telefono else None
         empresa.correo = command.correo.strip() if command.correo else None
-        empresa.entorno_sri = command.entorno_sri
+        empresa.entorno_sri = entorno
         return await self.repository.actualizar(empresa)
 
 

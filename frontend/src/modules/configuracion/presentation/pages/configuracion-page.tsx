@@ -141,9 +141,10 @@ export function ConfiguracionPage() {
           <div>
             <Label>Entorno SRI</Label>
             <select className="flex h-10 w-full rounded-md border border-input px-3 text-sm bg-background" value={empresa.entornoSri} onChange={(e) => setEmpresa({ ...empresa, entornoSri: e.target.value })}>
-              <option value="1">Pruebas</option>
-              <option value="2">Producción</option>
+              <option value="1">1 — Pruebas</option>
+              <option value="2">2 — Producción</option>
             </select>
+            <p className="mt-1 text-xs text-muted-foreground">Este código se envía al SRI en el XML (`ambiente`) y elige el webservice de pruebas o producción.</p>
           </div>
         </div>
         <Button type="submit" disabled={guardando}>Guardar empresa</Button>

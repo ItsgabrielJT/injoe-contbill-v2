@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from app.modules.configuracion.application.dto import ActualizarEmpresaCommand, GuardarPuntoCommand
 from app.modules.configuracion.domain.entities import EmpresaConfig, PuntoEmisionConfig
+from app.modules.configuracion.domain.ambiente import codigo_ambiente
 
 
 class EmpresaUpdateRequest(BaseModel):
@@ -10,7 +11,12 @@ class EmpresaUpdateRequest(BaseModel):
     direccion: str = Field(..., min_length=3)
     telefono: str | None = None
     correo: str | None = None
-    entorno_sri: str = "1"
+    entorno_sri: str = Field(..., validation_alias=AliasChoices("entorno_sri", "entornoSri"))
+
+    @field_validator("entorno_sri", mode="before")
+    @classmethod
+    def normalizar_entorno(cls, valor: object) -> str:
+        return codigo_ambiente(valor)
 
     def to_command(self) -> ActualizarEmpresaCommand:
         return ActualizarEmpresaCommand(**self.model_dump())

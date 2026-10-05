@@ -1,7 +1,7 @@
 "use client";
 
 import { Calculator, Mail, Phone, User, Warehouse, X } from "lucide-react";
-import { nombreCliente, type Factura } from "@/modules/facturacion/domain/entities";
+import { codigoAmbienteSri, etiquetaAmbienteSri, nombreCliente, type Factura } from "@/modules/facturacion/domain/entities";
 import { ChipEstado } from "@/modules/facturacion/presentation/components/chip-estado";
 import { Portal } from "@/shared/components/portal";
 import { Button } from "@/shared/components/ui/button";
@@ -18,6 +18,9 @@ interface Props {
 export function FacturaDetalleDialog({ factura, onClose }: Props) {
   if (!factura) return null;
   const cliente = nombreCliente(factura);
+  const ambiente = factura.claveAcceso || factura.xmlContent
+    ? codigoAmbienteSri(factura.claveAcceso, factura.xmlContent)
+    : null;
 
   return (
     <Portal>
@@ -54,6 +57,12 @@ export function FacturaDetalleDialog({ factura, onClose }: Props) {
                   <div className="flex justify-between"><span className="text-muted-foreground">Vencimiento</span><span>{factura.fechaVencimiento || "—"}</span></div>
                   {factura.fechaAutorizacion && (
                     <div className="flex justify-between"><span className="text-muted-foreground">Autorización</span><span>{factura.fechaAutorizacion.slice(0, 10)}</span></div>
+                  )}
+                  {ambiente && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Ambiente SRI</span>
+                      <span>{etiquetaAmbienteSri(ambiente)} ({ambiente})</span>
+                    </div>
                   )}
                 </section>
               </div>
