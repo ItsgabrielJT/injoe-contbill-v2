@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Package, Trash2, Wrench, X } from "lucide-react";
 import { BuscadorSelect } from "@/modules/inventario/presentation/components/buscador-select";
 import type { Bodega, Existencia, Producto, TipoImpuesto } from "@/modules/inventario/domain/entities";
@@ -68,14 +68,16 @@ interface Props {
   abierto: boolean;
   cargando?: boolean;
   factura?: Factura | null;
-  clientes: Cliente[];
-  productos: Producto[];
-  servicios: Servicio[];
+  clientes?: Cliente[];
+  productos?: Producto[];
+  servicios?: Servicio[];
   formasPago: FormaPago[];
   bodegas: Bodega[];
   existencias: Record<number, Existencia[]>;
   onCargarExistencias: (productoId: number) => Promise<Existencia[] | void>;
   onBuscarClientes?: (texto: string) => Promise<Cliente[]>;
+  onBuscarProductos?: (texto: string) => Promise<Producto[]>;
+  onBuscarServicios?: (texto: string) => Promise<Servicio[]>;
   onClose: () => void;
   onSubmit: (body: FacturaInput) => Promise<void>;
 }
@@ -84,14 +86,16 @@ export function FacturaFormDrawer({
   abierto,
   cargando,
   factura,
-  clientes,
-  productos,
-  servicios,
+  clientes = [],
+  productos = [],
+  servicios = [],
   formasPago,
   bodegas,
   existencias,
   onCargarExistencias,
   onBuscarClientes,
+  onBuscarProductos,
+  onBuscarServicios,
   onClose,
   onSubmit,
 }: Props) {
@@ -106,6 +110,11 @@ export function FacturaFormDrawer({
   const [lineas, setLineas] = useState<LineaForm[]>([]);
   const [clientesEncontrados, setClientesEncontrados] = useState<Cliente[]>([]);
   const [buscandoClientes, setBuscandoClientes] = useState(false);
+  const [productosHallados, setProductosHallados] = useState<Producto[]>([]);
+  const [serviciosHallados, setServiciosHallados] = useState<Servicio[]>([]);
+  const [buscandoItems, setBuscandoItems] = useState(false);
+  const buscarItemsRef = useRef({ onBuscarProductos, onBuscarServicios, productos, servicios });
+  buscarItemsRef.current = { onBuscarProductos, onBuscarServicios, productos, servicios };
 
   useEffect(() => {
     if (!abierto) return;
@@ -117,6 +126,8 @@ export function FacturaFormDrawer({
     setNotas(factura?.notas ?? "");
     setTerminos(factura?.terminos ?? "");
     setBusqueda("");
+    setProductosHallados([]);
+    setServiciosHallados([]);
     setLineas((factura?.items ?? []).map((item) => {
       const aplicaInventario = item.aplicaInventario || Boolean(productos.find((p) => p.id === item.productoId)?.aplicaInventario);
       return {
@@ -139,10 +150,6 @@ export function FacturaFormDrawer({
       if (item.productoId && aplicaInventario) void onCargarExistencias(item.productoId);
     }
   }, [abierto, factura]);
-
-  useEffect(() => {
-    if (abierto) setClientesEncontrados(clientes);
-  }, [abierto, clientes]);
 
   useEffect(() => {
     if (!abierto || factura?.formaPagoId) return;
@@ -180,25 +187,52 @@ export function FacturaFormDrawer({
     return Array.from(mapa.values());
   }, [clienteId, clientes, clientesEncontrados, factura]);
 
+  useEffect(() => {
+    if (!abierto) return;
+    const termino = busqueda.trim();
+    if (termino.length < 2) {
+      setProductosHallados((actual) => (actual.length ? [] : actual));
+      setServiciosHallados((actual) => (actual.length ? [] : actual));
+      setBuscandoItems(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const { onBuscarProductos: buscarProds, onBuscarServicios: buscarServs, productos: catalogoProd, servicios: catalogoServ } = buscarItemsRef.current;
+      setBuscandoItems(true);
+      try {
+        const [prods, servs] = await Promise.all([
+          buscarProds ? buscarProds(termino) : Promise.resolve(catalogoProd.filter((p) => `${p.codigo} ${p.nombre}`.toLowerCase().includes(termino.toLowerCase()))),
+          buscarServs ? buscarServs(termino) : Promise.resolve(catalogoServ.filter((s) => `${s.codigo} ${s.nombre}`.toLowerCase().includes(termino.toLowerCase()))),
+        ]);
+        setProductosHallados(prods);
+        setServiciosHallados(servs);
+      } catch {
+        setProductosHallados([]);
+        setServiciosHallados([]);
+      } finally {
+        setBuscandoItems(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [abierto, busqueda]);
+
   const itemsFiltrados = useMemo(() => {
-    const termino = busqueda.trim().toLowerCase();
-    if (termino.length < 2) return [];
-    const prods = productos.filter((p) => `${p.codigo} ${p.nombre}`.toLowerCase().includes(termino)).map((p) => ({
+    const prods = productosHallados.map((p) => ({
       tipo: "producto" as const,
       id: p.id,
       label: p.nombre,
       extra: `${p.codigo} · ${TIPOS_IMPUESTO.find((t) => t.value === p.tipoImpuesto)?.label ?? p.tipoImpuesto} · ${p.aplicaInventario ? `stock ${p.stockTotal}` : "sin inventario"}`,
       precio: p.precioVenta,
     }));
-    const servs = servicios.filter((s) => `${s.codigo} ${s.nombre}`.toLowerCase().includes(termino)).map((s) => ({
+    const servs = serviciosHallados.map((s) => ({
       tipo: "servicio" as const,
       id: s.id,
       label: s.nombre,
       extra: `${s.codigo} · ${TIPOS_IMPUESTO.find((t) => t.value === s.tipoImpuesto)?.label ?? s.tipoImpuesto}`,
       precio: s.precioVenta,
     }));
-    return [...prods, ...servs].slice(0, 12);
-  }, [busqueda, productos, servicios]);
+    return [...prods, ...servs];
+  }, [productosHallados, serviciosHallados]);
 
   const lineasCalc = useMemo(() => lineas.map((linea) => ({ linea, calc: recalc(linea) })), [lineas]);
 
@@ -222,8 +256,8 @@ export function FacturaFormDrawer({
   }
 
   async function agregarItem(tipo: "producto" | "servicio", id: number) {
-    const producto = tipo === "producto" ? productos.find((p) => p.id === id) : undefined;
-    const servicio = tipo === "servicio" ? servicios.find((s) => s.id === id) : undefined;
+    const producto = tipo === "producto" ? productosHallados.find((p) => p.id === id) ?? productos.find((p) => p.id === id) : undefined;
+    const servicio = tipo === "servicio" ? serviciosHallados.find((s) => s.id === id) ?? servicios.find((s) => s.id === id) : undefined;
     const origen = producto ?? servicio;
     if (!origen) return;
     const key = nuevaKey();
@@ -328,7 +362,11 @@ export function FacturaFormDrawer({
 
             <div>
               <Label>Agregar producto o servicio</Label>
-              <Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Escribe al menos 2 caracteres" />
+              <Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Busca por código o nombre" />
+              {buscandoItems && <p className="mt-1 text-xs text-muted-foreground">Buscando productos y servicios...</p>}
+              {busqueda.trim().length >= 2 && !buscandoItems && itemsFiltrados.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">Sin productos ni servicios para esa búsqueda.</p>
+              )}
               {itemsFiltrados.length > 0 && (
                 <div className="mt-1 rounded-md border bg-background shadow-sm max-h-48 overflow-y-auto">
                   {itemsFiltrados.map((item) => (

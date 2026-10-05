@@ -5,11 +5,9 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { Ban, BarChart3, FileText, Loader2, Plus, Search, Send, Trash2 } from "lucide-react";
 import { useSesionContext } from "@/modules/acceso/presentation/state/sesion-context";
 import { listarClientes } from "@/modules/clientes/infrastructure/clientes-api";
-import type { Cliente } from "@/modules/clientes/domain/entities";
 import { listarBodegas, listarExistencias, listarProductos } from "@/modules/inventario/infrastructure/inventario-api";
-import type { Bodega, Existencia, Producto } from "@/modules/inventario/domain/entities";
+import type { Bodega, Existencia } from "@/modules/inventario/domain/entities";
 import { listarServicios } from "@/modules/servicios/infrastructure/servicios-api";
-import type { Servicio } from "@/modules/servicios/domain/entities";
 import { obtenerEmpresa } from "@/modules/configuracion/infrastructure/configuracion-api";
 import {
   etiquetaEstado,
@@ -74,9 +72,6 @@ export function FacturacionPage() {
   const [detalle, setDetalle] = useState<Factura | null>(null);
   const [reporteUrl, setReporteUrl] = useState<string | null>(null);
   const [generandoReporte, setGenerandoReporte] = useState(false);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [servicios, setServicios] = useState<Servicio[]>([]);
   const [formas, setFormas] = useState<FormaPago[]>([]);
   const [bodegas, setBodegas] = useState<Bodega[]>([]);
   const [existencias, setExistencias] = useState<Record<number, Existencia[]>>({});
@@ -120,17 +115,11 @@ export function FacturacionPage() {
 
   const cargarCatalogos = useCallback(async () => {
     if (!token) return;
-    const [cli, prods, servs, fps, emp, bds] = await Promise.all([
-      listarClientes(token, { page: 1, size: 50, activo: true }),
-      listarProductos(token, { page: 1, size: 100, activo: true }),
-      listarServicios(token, { page: 1, size: 100, activo: true }),
+    const [fps, emp, bds] = await Promise.all([
       listarFormasPago(token),
       obtenerEmpresa(token),
       listarBodegas(token, { page: 1, size: 100, activo: true }),
     ]);
-    setClientes(cli.data);
-    setProductos(prods.data);
-    setServicios(servs.data);
     setFormas(fps);
     setBodegas(bds.data);
     setEmpresa({
@@ -160,7 +149,27 @@ export function FacturacionPage() {
   const buscarClientesFactura = useCallback(async (texto: string) => {
     const lista = await listarClientes(token, {
       page: 1,
-      size: 50,
+      size: 20,
+      search: texto || undefined,
+      activo: true,
+    });
+    return lista.data;
+  }, [token]);
+
+  const buscarProductosFactura = useCallback(async (texto: string) => {
+    const lista = await listarProductos(token, {
+      page: 1,
+      size: 20,
+      search: texto || undefined,
+      activo: true,
+    });
+    return lista.data;
+  }, [token]);
+
+  const buscarServiciosFactura = useCallback(async (texto: string) => {
+    const lista = await listarServicios(token, {
+      page: 1,
+      size: 20,
       search: texto || undefined,
       activo: true,
     });
@@ -384,14 +393,13 @@ export function FacturacionPage() {
         abierto={drawer}
         cargando={guardando}
         factura={edicion}
-        clientes={clientes}
-        productos={productos}
-        servicios={servicios}
         formasPago={formas}
         bodegas={bodegas}
         existencias={existencias}
         onCargarExistencias={cargarExistencias}
         onBuscarClientes={buscarClientesFactura}
+        onBuscarProductos={buscarProductosFactura}
+        onBuscarServicios={buscarServiciosFactura}
         onClose={() => { setDrawer(false); setEdicion(null); }}
         onSubmit={guardar}
       />
