@@ -33,8 +33,6 @@ import { ChipEstado } from "@/modules/facturacion/presentation/components/chip-e
 import { FacturaFormDrawer } from "@/modules/facturacion/presentation/forms/factura-form-drawer";
 import { FacturaDetalleDialog } from "@/modules/facturacion/presentation/modals/factura-detalle-dialog";
 import { FacturacionEstadisticas } from "@/modules/facturacion/presentation/pages/facturacion-estadisticas";
-import { blobReporteFacturas } from "@/modules/facturacion/presentation/pdf/factura-reporte-pdf";
-import { descargarPdfFactura } from "@/modules/facturacion/presentation/pdf/invoice-pdf";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { MuiDataTable } from "@/shared/components/MuiDataTable";
 import { Portal } from "@/shared/components/portal";
@@ -176,6 +174,15 @@ export function FacturacionPage() {
     return lista.data;
   }, [token]);
 
+  const descargarPdf = useCallback(async (row: Factura) => {
+    try {
+      const { descargarPdfFactura } = await import("@/modules/facturacion/presentation/pdf/invoice-pdf");
+      await descargarPdfFactura(row, empresa);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo generar el PDF");
+    }
+  }, [empresa]);
+
   useEffect(() => { void cargar(); }, [cargar, puntoActivo?.id]);
   useEffect(() => { void cargarCatalogos(); }, [cargarCatalogos, puntoActivo?.id]);
   useEffect(() => () => { if (reporteUrl) URL.revokeObjectURL(reporteUrl); }, [reporteUrl]);
@@ -231,7 +238,7 @@ export function FacturacionPage() {
       renderCell: ({ row }) => (
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" title="Detalle" onClick={() => void abrirDetalle(row)}><Search className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" title="PDF" onClick={() => void descargarPdfFactura(row, empresa)}><FileText className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" title="PDF" onClick={() => void descargarPdf(row)}><FileText className="h-4 w-4" /></Button>
           {(row.estado === "BORRADOR" || row.estado === "RECHAZADA") && (
             <Button size="sm" variant="outline" onClick={() => { setEdicion(row); setDrawer(true); }}>Editar</Button>
           )}
@@ -254,7 +261,7 @@ export function FacturacionPage() {
         </div>
       ),
     },
-  ], [empresa, enviandoId, token]);
+  ], [descargarPdf, enviandoId, token]);
 
   async function guardar(body: FacturaInput) {
     setGuardando(true);
@@ -302,6 +309,7 @@ export function FacturacionPage() {
     setGenerandoReporte(true);
     try {
       const facturas = await listarFacturasReporte(token, filtros);
+      const { blobReporteFacturas } = await import("@/modules/facturacion/presentation/pdf/factura-reporte-pdf");
       const blob = await blobReporteFacturas({
         facturas,
         totales,
