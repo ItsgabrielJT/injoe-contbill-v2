@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calculator, Package, Trash2, Wrench, X } from "lucide-react";
 import { BuscadorSelect } from "@/modules/inventario/presentation/components/buscador-select";
 import type { Bodega, Existencia, Producto, TipoImpuesto } from "@/modules/inventario/domain/entities";
@@ -75,6 +75,7 @@ interface Props {
   bodegas: Bodega[];
   existencias: Record<number, Existencia[]>;
   onCargarExistencias: (productoId: number) => Promise<Existencia[] | void>;
+  onBuscarClientes?: (texto: string) => Promise<Cliente[]>;
   onClose: () => void;
   onSubmit: (body: FacturaInput) => Promise<void>;
 }
@@ -90,6 +91,7 @@ export function FacturaFormDrawer({
   bodegas,
   existencias,
   onCargarExistencias,
+  onBuscarClientes,
   onClose,
   onSubmit,
 }: Props) {
@@ -102,6 +104,8 @@ export function FacturaFormDrawer({
   const [terminos, setTerminos] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [lineas, setLineas] = useState<LineaForm[]>([]);
+  const [clientesEncontrados, setClientesEncontrados] = useState<Cliente[]>([]);
+  const [buscandoClientes, setBuscandoClientes] = useState(false);
 
   useEffect(() => {
     if (!abierto) return;
@@ -137,9 +141,44 @@ export function FacturaFormDrawer({
   }, [abierto, factura]);
 
   useEffect(() => {
+    if (abierto) setClientesEncontrados(clientes);
+  }, [abierto, clientes]);
+
+  useEffect(() => {
     if (!abierto || factura?.formaPagoId) return;
     setFormaPagoId((actual) => actual ?? formasPago[0]?.id ?? null);
   }, [abierto, factura, formasPago]);
+
+  const buscarClientes = useCallback((texto: string) => {
+    if (!onBuscarClientes) return;
+    setBuscandoClientes(true);
+    void onBuscarClientes(texto)
+      .then((lista) => setClientesEncontrados(lista))
+      .finally(() => setBuscandoClientes(false));
+  }, [onBuscarClientes]);
+
+  const opcionesCliente = useMemo(() => {
+    const mapa = new Map<number, { id: number; label: string; extra: string }>();
+    const agregar = (cliente: Pick<Cliente, "id" | "nombres" | "razonSocial" | "identificacion">) => {
+      const label = cliente.nombres || cliente.razonSocial || cliente.identificacion;
+      const extra = [cliente.identificacion, cliente.razonSocial && cliente.razonSocial !== cliente.nombres ? cliente.razonSocial : null]
+        .filter(Boolean)
+        .join(" · ");
+      mapa.set(cliente.id, { id: cliente.id, label, extra });
+    };
+    for (const cliente of clientesEncontrados) agregar(cliente);
+    const seleccionado = clientes.find((cliente) => cliente.id === clienteId);
+    if (seleccionado) agregar(seleccionado);
+    if (clienteId && !mapa.has(clienteId) && factura?.clienteId === clienteId) {
+      agregar({
+        id: clienteId,
+        nombres: factura.clienteNombres || "",
+        razonSocial: null,
+        identificacion: factura.clienteIdentificacion || "",
+      });
+    }
+    return Array.from(mapa.values());
+  }, [clienteId, clientes, clientesEncontrados, factura]);
 
   const itemsFiltrados = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -268,10 +307,12 @@ export function FacturaFormDrawer({
                 <div>
                   <Label>Cliente</Label>
                   <BuscadorSelect
-                    opciones={clientes.map((c) => ({ id: c.id, label: c.nombres, extra: c.identificacion ?? "" }))}
+                    opciones={opcionesCliente}
                     valor={clienteId}
                     onChange={setClienteId}
                     placeholder="Buscar cliente"
+                    cargando={buscandoClientes}
+                    onBuscar={onBuscarClientes ? buscarClientes : undefined}
                   />
                 </div>
               )}

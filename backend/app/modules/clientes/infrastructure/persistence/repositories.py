@@ -96,6 +96,7 @@ class SqlAlchemyClienteRepository:
                     ClienteModel.razon_social.ilike(termino),
                     ClienteModel.identificacion.ilike(termino),
                     cast(ClienteModel.correos, String).ilike(termino),
+                    cast(ClienteModel.telefonos, String).ilike(termino),
                 )
             )
         if query.tipo_cliente:

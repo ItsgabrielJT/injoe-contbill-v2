@@ -59,15 +59,29 @@ interface BuscadorSelectProps {
   placeholder?: string;
   disabled?: boolean;
   error?: boolean;
+  cargando?: boolean;
+  onBuscar?: (texto: string) => void;
 }
 
-export function BuscadorSelect({ opciones, valor, onChange, placeholder = "Buscar...", disabled, error }: BuscadorSelectProps) {
+export function BuscadorSelect({
+  opciones,
+  valor,
+  onChange,
+  placeholder = "Buscar...",
+  disabled,
+  error,
+  cargando,
+  onBuscar,
+}: BuscadorSelectProps) {
   const [abierto, setAbierto] = useState(false);
   const [texto, setTexto] = useState("");
   const contenedor = useCerrarAlClickFuera(abierto, () => setAbierto(false));
   const seleccionado = opciones.find((item) => item.id === valor) ?? null;
 
   const filtradas = useMemo(() => {
+    if (onBuscar) {
+      return opciones.slice(0, 50);
+    }
     const termino = texto.trim().toLowerCase();
     if (!termino) {
       return opciones.slice(0, 20);
@@ -75,13 +89,19 @@ export function BuscadorSelect({ opciones, valor, onChange, placeholder = "Busca
     return opciones
       .filter((item) => `${item.label} ${item.extra ?? ""}`.toLowerCase().includes(termino))
       .slice(0, 20);
-  }, [opciones, texto]);
+  }, [onBuscar, opciones, texto]);
 
   useEffect(() => {
     if (!abierto) {
       setTexto("");
     }
   }, [abierto]);
+
+  useEffect(() => {
+    if (!onBuscar || !abierto) return;
+    const timer = setTimeout(() => onBuscar(texto.trim()), texto.trim() ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [abierto, onBuscar, texto]);
 
   return (
     <div ref={contenedor} className="relative">
@@ -121,7 +141,8 @@ export function BuscadorSelect({ opciones, valor, onChange, placeholder = "Busca
             onChange={(event) => setTexto(event.target.value)}
           />
           <ul className="max-h-48 overflow-y-auto py-1">
-            {filtradas.length === 0 && <li className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</li>}
+            {cargando && <li className="px-3 py-2 text-sm text-muted-foreground">Buscando...</li>}
+            {!cargando && filtradas.length === 0 && <li className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</li>}
             {filtradas.map((item) => (
               <li key={item.id}>
                 <button

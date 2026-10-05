@@ -121,7 +121,7 @@ export function FacturacionPage() {
   const cargarCatalogos = useCallback(async () => {
     if (!token) return;
     const [cli, prods, servs, fps, emp, bds] = await Promise.all([
-      listarClientes(token, { page: 1, size: 100 }),
+      listarClientes(token, { page: 1, size: 50, activo: true }),
       listarProductos(token, { page: 1, size: 100, activo: true }),
       listarServicios(token, { page: 1, size: 100, activo: true }),
       listarFormasPago(token),
@@ -155,6 +155,16 @@ export function FacturacionPage() {
       return next;
     });
     return filas;
+  }, [token]);
+
+  const buscarClientesFactura = useCallback(async (texto: string) => {
+    const lista = await listarClientes(token, {
+      page: 1,
+      size: 50,
+      search: texto || undefined,
+      activo: true,
+    });
+    return lista.data;
   }, [token]);
 
   useEffect(() => { void cargar(); }, [cargar, puntoActivo?.id]);
@@ -381,6 +391,7 @@ export function FacturacionPage() {
         bodegas={bodegas}
         existencias={existencias}
         onCargarExistencias={cargarExistencias}
+        onBuscarClientes={buscarClientesFactura}
         onClose={() => { setDrawer(false); setEdicion(null); }}
         onSubmit={guardar}
       />

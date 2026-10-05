@@ -78,7 +78,7 @@ function mapCliente(dto: ClienteApiDto): Cliente {
 
 export async function listarClientes(
   token: string,
-  params: { page: number; size: number; search?: string },
+  params: { page: number; size: number; search?: string; activo?: boolean },
 ): Promise<ListaClientes> {
   const query = new URLSearchParams({
     page: String(params.page),
@@ -86,6 +86,9 @@ export async function listarClientes(
   });
   if (params.search) {
     query.set("search", params.search);
+  }
+  if (params.activo !== undefined) {
+    query.set("activo", String(params.activo));
   }
   const dto = await httpClient<ListaApi<ClienteApiDto>>(`/clientes/?${query.toString()}`, { token });
   return {
