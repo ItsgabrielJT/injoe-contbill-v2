@@ -45,14 +45,16 @@ export function SelectorPuntoEmision({ empresas, onSelect, cargando }: SelectorP
             >
               <Card className="backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl hover:shadow-[#279FF5]/20 transition-all duration-300 hover:scale-105 h-full">
                 <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-white" />
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-dark">
+                      <MapPin className="h-6 w-6 text-white" />
                     </div>
-                    <div>
-                      <CardTitle className="text-lg text-white">{punto.nombre}</CardTitle>
-                      <p className="text-white/70 text-sm">{empresa.nombre}</p>
-                      <p className="text-white/60 text-xs">Código: {punto.codigo}</p>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base sm:text-lg text-white leading-snug break-words">
+                        {punto.nombre}
+                      </CardTitle>
+                      <p className="text-white/70 text-sm leading-snug break-words">{empresa.nombre}</p>
+                      <p className="text-white/60 text-xs mt-0.5">Código: {punto.codigo}</p>
                     </div>
                   </div>
                 </CardHeader>
