@@ -1,13 +1,78 @@
 "use client";
 
-import { Calculator, Mail, Phone, User, Warehouse, X } from "lucide-react";
-import { codigoAmbienteSri, etiquetaAmbienteSri, nombreCliente, type Factura } from "@/modules/facturacion/domain/entities";
+import { useState } from "react";
+import { Calculator, Check, Copy, Mail, Phone, User, Warehouse, X } from "lucide-react";
+import { codigoAmbienteSri, etiquetaAmbienteSri, nombreCliente, numeroAutorizacionSri, type Factura } from "@/modules/facturacion/domain/entities";
 import { ChipEstado } from "@/modules/facturacion/presentation/components/chip-estado";
 import { Portal } from "@/shared/components/portal";
 import { Button } from "@/shared/components/ui/button";
 
 function dinero(valor: number): string {
   return `$${valor.toFixed(2)}`;
+}
+
+async function copiarAlPortapapeles(texto: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    }
+  } catch {
+    // Clipboard API puede fallar sin permiso; se intenta el fallback.
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = texto;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.left = "-9999px";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(area);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function CampoNumeroAutorizacion({ numero }: { numero: string }) {
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiar() {
+    const ok = await copiarAlPortapapeles(numero);
+    if (!ok) return;
+    setCopiado(true);
+    window.setTimeout(() => setCopiado(false), 2000);
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-xl border border-primary/25 bg-primary/5 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">N.° autorización SRI</p>
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={copiar}
+          className="flex-1 select-all break-all text-left font-mono text-xs leading-relaxed text-foreground"
+          title="Copiar número de autorización"
+        >
+          {numero}
+        </button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={copiar}
+          title={copiado ? "Copiado" : "Copiar número de autorización"}
+          aria-label="Copiar número de autorización"
+          className="h-8 shrink-0 gap-1 px-2"
+        >
+          {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copiado ? "Copiado" : "Copiar"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 interface Props {
@@ -21,6 +86,7 @@ export function FacturaDetalleDialog({ factura, onClose }: Props) {
   const ambiente = factura.claveAcceso || factura.xmlContent
     ? codigoAmbienteSri(factura.claveAcceso, factura.xmlContent)
     : null;
+  const numeroAutorizacion = numeroAutorizacionSri(factura);
 
   return (
     <Portal>
@@ -56,8 +122,9 @@ export function FacturaDetalleDialog({ factura, onClose }: Props) {
                   <div className="flex justify-between"><span className="text-muted-foreground">Emisión</span><span>{factura.fechaEmision}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Vencimiento</span><span>{factura.fechaVencimiento || "—"}</span></div>
                   {factura.fechaAutorizacion && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Autorización</span><span>{factura.fechaAutorizacion.slice(0, 10)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Fecha de autorización</span><span>{factura.fechaAutorizacion.slice(0, 10)}</span></div>
                   )}
+                  {numeroAutorizacion && <CampoNumeroAutorizacion numero={numeroAutorizacion} />}
                   {ambiente && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Ambiente SRI</span>

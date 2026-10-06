@@ -186,6 +186,17 @@ export function nombreCliente(factura: Pick<Factura, "tipoReceptor" | "clienteNo
   return factura.tipoReceptor === "consumidor_final" ? "Consumidor final" : factura.clienteNombres || "Cliente";
 }
 
+export function numeroAutorizacionSri(
+  factura: Pick<Factura, "numeroAutorizacion" | "claveAcceso" | "estado" | "fechaAutorizacion">,
+): string | null {
+  const numero = (factura.numeroAutorizacion || factura.claveAcceso || "").trim();
+  if (!numero) return null;
+  if (factura.numeroAutorizacion || factura.fechaAutorizacion || factura.estado === "AUTORIZADA") {
+    return numero;
+  }
+  return null;
+}
+
 export function codigoAmbienteSri(clave?: string | null, xml?: string | null, entornoEmpresa?: string): string {
   if (clave && clave.length >= 24 && (clave[23] === "1" || clave[23] === "2")) return clave[23];
   const match = xml?.match(/<ambiente>\s*([12])\s*<\/ambiente>/i);
