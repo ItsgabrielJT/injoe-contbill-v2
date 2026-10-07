@@ -80,7 +80,7 @@ export function BuscadorSelect({
 
   const filtradas = useMemo(() => {
     if (onBuscar) {
-      return opciones.slice(0, 50);
+      return opciones;
     }
     const termino = texto.trim().toLowerCase();
     if (!termino) {

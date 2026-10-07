@@ -51,6 +51,7 @@ import { Portal } from "@/shared/components/portal";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ApiError } from "@/shared/infrastructure/http/http-error";
+import { listarTodasLasPaginas } from "@/shared/lib/listar-todas-las-paginas";
 import { cn } from "@/shared/lib/utils";
 
 type Tab = "productos" | "alertas" | "categorias" | "bodegas" | "proveedores";
@@ -118,11 +119,11 @@ export function ProductosPage() {
   const cargarMaestros = useCallback(async () => {
     if (!token) return;
     const [cats, bodes] = await Promise.all([
-      listarCategorias(token, { page: 1, size: 200 }),
-      listarBodegas(token, { page: 1, size: 200 }),
+      listarTodasLasPaginas((page, size) => listarCategorias(token, { page, size })),
+      listarTodasLasPaginas((page, size) => listarBodegas(token, { page, size })),
     ]);
-    setCategorias(cats.data);
-    setBodegas(bodes.data);
+    setCategorias(cats);
+    setBodegas(bodes);
   }, [token]);
 
   const cargarProductos = useCallback(async () => {
@@ -167,8 +168,8 @@ export function ProductosPage() {
 
   useEffect(() => {
     if (tab !== "proveedores" || !token) return;
-    void listarProductos(token, { page: 1, size: 200, activo: true })
-      .then((respuesta) => setCatalogoCostos(respuesta.data))
+    void listarTodasLasPaginas((page, size) => listarProductos(token, { page, size, activo: true }))
+      .then((data) => setCatalogoCostos(data))
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar los productos"));
   }, [tab, token, puntoActivo?.id]);
 
@@ -257,8 +258,8 @@ export function ProductosPage() {
 
   async function abrirReporte() {
     setReporteAbierto(true);
-    const lista = await listarProductos(token, { page: 1, size: 200 });
-    setCatalogoProductos(lista.data);
+    const lista = await listarTodasLasPaginas((page, size) => listarProductos(token, { page, size }));
+    setCatalogoProductos(lista);
   }
 
   const columnsProductos = useMemo<GridColDef[]>(

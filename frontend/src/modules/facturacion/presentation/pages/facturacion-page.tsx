@@ -39,6 +39,7 @@ import { Portal } from "@/shared/components/portal";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ApiError } from "@/shared/infrastructure/http/http-error";
+import { listarTodasLasPaginas } from "@/shared/lib/listar-todas-las-paginas";
 
 const VACIO_TOTALES: TotalesFactura = { cantidad: 0, subtotal: 0, iva15: 0, iva5: 0, iva0: 0, total: 0 };
 
@@ -116,10 +117,10 @@ export function FacturacionPage() {
     const [fps, emp, bds] = await Promise.all([
       listarFormasPago(token),
       obtenerEmpresa(token),
-      listarBodegas(token, { page: 1, size: 100, activo: true }),
+      listarTodasLasPaginas((page, size) => listarBodegas(token, { page, size, activo: true })),
     ]);
     setFormas(fps);
-    setBodegas(bds.data);
+    setBodegas(bds);
     setEmpresa({
       nombre: emp.nombre,
       ruc: emp.ruc,
@@ -145,33 +146,21 @@ export function FacturacionPage() {
   }, [token]);
 
   const buscarClientesFactura = useCallback(async (texto: string) => {
-    const lista = await listarClientes(token, {
-      page: 1,
-      size: 20,
-      search: texto || undefined,
-      activo: true,
-    });
-    return lista.data;
+    return listarTodasLasPaginas((page, size) =>
+      listarClientes(token, { page, size, search: texto || undefined, activo: true }),
+    );
   }, [token]);
 
   const buscarProductosFactura = useCallback(async (texto: string) => {
-    const lista = await listarProductos(token, {
-      page: 1,
-      size: 20,
-      search: texto || undefined,
-      activo: true,
-    });
-    return lista.data;
+    return listarTodasLasPaginas((page, size) =>
+      listarProductos(token, { page, size, search: texto || undefined, activo: true }),
+    );
   }, [token]);
 
   const buscarServiciosFactura = useCallback(async (texto: string) => {
-    const lista = await listarServicios(token, {
-      page: 1,
-      size: 20,
-      search: texto || undefined,
-      activo: true,
-    });
-    return lista.data;
+    return listarTodasLasPaginas((page, size) =>
+      listarServicios(token, { page, size, search: texto || undefined, activo: true }),
+    );
   }, [token]);
 
   const descargarPdf = useCallback(async (row: Factura) => {

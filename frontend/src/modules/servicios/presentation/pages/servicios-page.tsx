@@ -30,6 +30,7 @@ import { MuiDataTable } from "@/shared/components/MuiDataTable";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ApiError } from "@/shared/infrastructure/http/http-error";
+import { listarTodasLasPaginas } from "@/shared/lib/listar-todas-las-paginas";
 
 function aInput(values: ServicioFormValues): ServicioInput {
   return {
@@ -110,8 +111,8 @@ export function ServiciosPage() {
 
   useEffect(() => {
     if (tab !== "proveedores" || !token) return;
-    void listarServicios(token, { page: 1, size: 100, activo: true })
-      .then((respuesta) => setCatalogoCostos(respuesta.data))
+    void listarTodasLasPaginas((page, size) => listarServicios(token, { page, size, activo: true }))
+      .then((data) => setCatalogoCostos(data))
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar los servicios"));
   }, [tab, token, puntoActivo?.id]);
 
