@@ -1,6 +1,6 @@
 import json
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from app.modules.facturacion.application.dto import (
@@ -16,7 +16,9 @@ from app.modules.facturacion.domain.entities import (
     Factura,
     FacturaItem,
     TipoReceptor,
+    alinear_fecha_emision_sri,
     dinero,
+    hoy_sri,
 )
 from app.modules.facturacion.domain.exceptions import (
     BodegaRequerida,
@@ -258,7 +260,7 @@ class GuardarFacturaUseCase:
                 numero=numero,
                 tipo_receptor=command.tipo_receptor,
                 estado=EstadoFactura.BORRADOR,
-                fecha_emision=command.fecha_emision or date.today(),
+                fecha_emision=command.fecha_emision or hoy_sri(),
             )
 
         factura.tipo_receptor = command.tipo_receptor
@@ -335,6 +337,8 @@ class EnviarSriUseCase:
             if recuperada.estado == EstadoFactura.AUTORIZADA:
                 return recuperada
             factura = recuperada
+        if factura.estado in {EstadoFactura.BORRADOR, EstadoFactura.RECHAZADA}:
+            alinear_fecha_emision_sri(factura)
         factura.estado = EstadoFactura.ENVIADA
         await self.repository.guardar(factura)
         respuesta = await firmar_factura(factura, empresa, punto)
@@ -524,6 +528,7 @@ class ReintentarSriUseCase:
                     self.repository, factura, empresa, punto, clave, xml, tenant, self.producto_repository, self.movimiento_repository
                 )
         if factura.estado == EstadoFactura.RECHAZADA:
+            alinear_fecha_emision_sri(factura)
             respuesta = await firmar_factura(factura, empresa, punto)
             return await _aplicar_respuesta_sri(
                 self.repository, factura, empresa, punto, respuesta, tenant, self.producto_repository, self.movimiento_repository
