@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import html
+import ipaddress
 import io
 import logging
+import socket
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from reportlab.graphics.barcode import code128
 from reportlab.lib.pagesizes import A4
@@ -25,6 +29,7 @@ LOGOS_DIR = Path(__file__).resolve().parents[5] / "frontend" / "public" / "logos
 LOGO_SISTEMA = LOGOS_DIR / "logo_injoe_web.png"
 LOGO_BLANCO = LOGOS_DIR / "logo_injoe_white.png"
 NOMBRE_SISTEMA = "INJOE CONTBILL"
+MAX_LOGO_BYTES = 5 * 1024 * 1024
 
 
 def _dinero(valor) -> str:
@@ -36,17 +41,77 @@ def _ambiente(factura, empresa) -> str:
     return f"{etiqueta_ambiente(codigo)} ({codigo})"
 
 
-def _logo(empresa) -> Path | None:
-    candidatos = []
+def _validar_url_logo(url: str) -> None:
+    partes = urlsplit(url)
+    if partes.scheme not in {"http", "https"} or not partes.hostname or partes.username or partes.password:
+        raise ValueError("La URL del logo no es válida")
+
+    try:
+        direcciones = socket.getaddrinfo(partes.hostname, partes.port or (443 if partes.scheme == "https" else 80))
+    except OSError as exc:
+        raise ValueError("No se pudo resolver el host del logo") from exc
+
+    for direccion in direcciones:
+        ip = ipaddress.ip_address(direccion[4][0])
+        if not ip.is_global:
+            raise ValueError("La URL del logo debe apuntar a un host público")
+
+
+class _RedirectSeguroLogo(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _validar_url_logo(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _descargar_logo(url: str) -> bytes | None:
+    try:
+        _validar_url_logo(url)
+        solicitud = Request(url, headers={"User-Agent": "INJOE-CONTBILL/1.0"})
+        with build_opener(_RedirectSeguroLogo()).open(solicitud, timeout=5) as respuesta:
+            tipo = respuesta.headers.get_content_type()
+            if not tipo.startswith("image/"):
+                return None
+            contenido = respuesta.read(MAX_LOGO_BYTES + 1)
+        if len(contenido) > MAX_LOGO_BYTES:
+            logger.warning("Se omitió el logo remoto por exceder el tamaño permitido")
+            return None
+        if contenido:
+            ImageReader(io.BytesIO(contenido)).getSize()
+        return contenido or None
+    except Exception:
+        logger.warning("No se pudo cargar el logo remoto de la empresa", exc_info=True)
+        return None
+
+
+def _logo(empresa) -> Path | bytes | None:
     ruta = getattr(empresa, "ruta_logo", None)
-    if ruta:
-        candidatos.append(Path(ruta))
-        if isinstance(ruta, str) and ruta.startswith("/"):
-            candidatos.append(Path(__file__).resolve().parents[5] / "frontend" / "public" / ruta.lstrip("/"))
-    candidatos.append(LOGO_SISTEMA)
-    for path in candidatos:
-        if path and path.exists() and path.is_file() and path.stat().st_size > 0:
-            return path
+    if isinstance(ruta, str) and ruta.strip():
+        ruta = ruta.strip()
+        if urlsplit(ruta).scheme in {"http", "https"}:
+            logo_remoto = _descargar_logo(ruta)
+            if logo_remoto:
+                return logo_remoto
+        else:
+            ruta_path = Path(ruta)
+            candidatos = [ruta_path]
+            if not ruta_path.is_absolute():
+                candidatos.append(Path(__file__).resolve().parents[5] / "frontend" / "public" / ruta.lstrip("/"))
+            elif ruta.startswith("/"):
+                candidatos.append(Path(__file__).resolve().parents[5] / "frontend" / "public" / ruta.lstrip("/"))
+            for path in candidatos:
+                try:
+                    if path.is_file() and path.stat().st_size > 0:
+                        ImageReader(str(path)).getSize()
+                        return path
+                except Exception:
+                    continue
+
+    try:
+        if LOGO_SISTEMA.is_file() and LOGO_SISTEMA.stat().st_size > 0:
+            ImageReader(str(LOGO_SISTEMA)).getSize()
+            return LOGO_SISTEMA
+    except Exception:
+        logger.warning("No se encontró el logo predeterminado del sistema", exc_info=True)
     return None
 
 
@@ -106,7 +171,7 @@ def generar_pdf_factura(factura: Factura, empresa, punto) -> bytes:
     if logo:
         try:
             pdf.drawImage(
-                ImageReader(str(logo)),
+                ImageReader(io.BytesIO(logo) if isinstance(logo, bytes) else str(logo)),
                 x_izq + 3 * mm,
                 y_top - 24 * mm,
                 width=42 * mm,
