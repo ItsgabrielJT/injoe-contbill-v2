@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "export",
   webpack(config, { isServer }) {
     if (!isServer && config.optimization?.splitChunks && typeof config.optimization.splitChunks === "object") {
       config.optimization.splitChunks.cacheGroups = {
