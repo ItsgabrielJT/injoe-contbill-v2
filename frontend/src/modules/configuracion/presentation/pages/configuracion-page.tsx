@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle, FileText, Lock, Settings, Shield, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle, FileText, Image as ImageIcon, Lock, Settings, Shield, Trash2, Upload } from "lucide-react";
 import { useSesionContext } from "@/modules/acceso/presentation/state/sesion-context";
 import type { EmpresaConfig, PuntoConfig, CertificadoInfo } from "@/modules/configuracion/domain/entities";
 import {
@@ -12,6 +12,9 @@ import {
   guardarSriId,
   listarPuntos,
   obtenerEmpresa,
+  obtenerLogoEmpresa,
+  subirLogoEmpresa,
+  eliminarLogoEmpresa,
   subirCertificado,
 } from "@/modules/configuracion/infrastructure/configuracion-api";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
@@ -35,6 +38,10 @@ export function ConfiguracionPage() {
   const archivoRef = useRef<HTMLInputElement>(null);
   const [puntoForm, setPuntoForm] = useState<Partial<PuntoConfig> | null>(null);
   const [eliminar, setEliminar] = useState<PuntoConfig | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [logoArchivo, setLogoArchivo] = useState<File | null>(null);
+  const [logoGuardando, setLogoGuardando] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   const cargar = useCallback(async () => {
     if (!token) return;
@@ -43,11 +50,58 @@ export function ConfiguracionPage() {
       const [emp, pts] = await Promise.all([obtenerEmpresa(token), listarPuntos(token)]);
       setEmpresa(emp);
       setPuntos(pts);
+      setLogoDataUrl(await obtenerLogoEmpresa(token));
       if (emp.sriId) setCertificado(await consultarCertificado(emp.sriId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo cargar la configuración");
     }
   }, [token]);
+
+  function seleccionarLogo(event: React.ChangeEvent<HTMLInputElement>) {
+    const archivoSeleccionado = event.target.files?.[0] ?? null;
+    if (!archivoSeleccionado) return;
+    const tipos = ["image/png", "image/jpeg", "image/webp"];
+    if (!tipos.includes(archivoSeleccionado.type) || archivoSeleccionado.size > 5 * 1024 * 1024) {
+      setError("El logo debe ser PNG, JPEG o WebP y no superar 5 MB");
+      event.target.value = "";
+      return;
+    }
+    setError(null);
+    setLogoArchivo(archivoSeleccionado);
+  }
+
+  async function guardarLogo() {
+    if (!logoArchivo) return;
+    setLogoGuardando(true);
+    try {
+      const actualizada = await subirLogoEmpresa(token, logoArchivo);
+      setEmpresa(actualizada);
+      setLogoDataUrl(await obtenerLogoEmpresa(token));
+      setLogoArchivo(null);
+      if (logoRef.current) logoRef.current.value = "";
+      setExito("Logo de empresa guardado");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo guardar el logo");
+    } finally {
+      setLogoGuardando(false);
+    }
+  }
+
+  async function borrarLogo() {
+    setLogoGuardando(true);
+    try {
+      const actualizada = await eliminarLogoEmpresa(token);
+      setEmpresa(actualizada);
+      setLogoDataUrl(null);
+      setLogoArchivo(null);
+      if (logoRef.current) logoRef.current.value = "";
+      setExito("Logo eliminado");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo eliminar el logo");
+    } finally {
+      setLogoGuardando(false);
+    }
+  }
 
   useEffect(() => { void cargar(); }, [cargar]);
 
@@ -149,6 +203,28 @@ export function ConfiguracionPage() {
         </div>
         <Button type="submit" disabled={guardando}>Guardar empresa</Button>
       </form>
+
+      <section className="rounded-xl border bg-card p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold flex items-center gap-2"><ImageIcon className="h-5 w-5" /> Logo de la empresa</h2>
+          <p className="text-sm text-muted-foreground">Se utilizará en facturas, reportes descargables y correos enviados a clientes.</p>
+        </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex h-28 w-56 items-center justify-center rounded-lg border bg-white p-3">
+            {logoDataUrl ? <img src={logoDataUrl} alt={`Logo de ${empresa.nombre}`} className="max-h-full max-w-full object-contain" /> : <span className="text-sm text-muted-foreground">Sin logo cargado</span>}
+          </div>
+          <div className="space-y-2">
+            <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={seleccionarLogo} />
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" disabled={logoGuardando} onClick={() => logoRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Seleccionar logo</Button>
+              {logoArchivo && <Button type="button" disabled={logoGuardando} onClick={() => void guardarLogo()}>{logoGuardando ? "Guardando..." : "Guardar logo"}</Button>}
+              {logoDataUrl && <Button type="button" variant="ghost" disabled={logoGuardando} onClick={() => void borrarLogo()}><Trash2 className="mr-2 h-4 w-4" /> Eliminar</Button>}
+            </div>
+            {logoArchivo && <p className="text-sm text-muted-foreground">Seleccionado: {logoArchivo.name}</p>}
+            <p className="text-xs text-muted-foreground">Formatos: PNG, JPEG o WebP · Máximo 5 MB</p>
+          </div>
+        </div>
+      </section>
 
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div>

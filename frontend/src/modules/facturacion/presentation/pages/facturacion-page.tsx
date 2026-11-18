@@ -39,6 +39,7 @@ import { Portal } from "@/shared/components/portal";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ApiError } from "@/shared/infrastructure/http/http-error";
+import { cargarLogoEmpresa } from "@/shared/lib/logo-empresa";
 import { listarTodasLasPaginas } from "@/shared/lib/listar-todas-las-paginas";
 
 const VACIO_TOTALES: TotalesFactura = { cantidad: 0, subtotal: 0, iva15: 0, iva5: 0, iva0: 0, total: 0 };
@@ -129,7 +130,7 @@ export function FacturacionPage() {
       telefono: emp.telefono ?? "",
       correo: emp.correo ?? "",
       entornoSri: emp.entornoSri,
-      logoUrl: emp.rutaLogo,
+      logoUrl: await cargarLogoEmpresa(token),
     });
   }, [token, puntoActivo?.direccion]);
 
@@ -304,6 +305,7 @@ export function FacturacionPage() {
         totales,
         empresa: empresa.nombre,
         filtros: [debounced && `Búsqueda: ${debounced}`, estado && `Estado: ${etiquetaEstado(estado)}`].filter(Boolean).join(" · ") || "Todas las facturas",
+        logo: empresa.logoUrl ?? undefined,
       });
       if (reporteUrl) URL.revokeObjectURL(reporteUrl);
       setReporteUrl(URL.createObjectURL(blob));

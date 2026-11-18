@@ -9,7 +9,9 @@ from app.modules.configuracion.application.dto import ContextoTenant
 from app.modules.configuracion.application.use_cases.gestionar_empresa import (
     ActualizarEmpresaUseCase,
     ActualizarSriIdUseCase,
+    EliminarLogoUseCase,
     ObtenerEmpresaUseCase,
+    SubirLogoUseCase,
 )
 from app.modules.configuracion.application.use_cases.gestionar_puntos import (
     EliminarPuntoUseCase,
@@ -50,6 +52,14 @@ async def get_actualizar_empresa(repo: Annotated[SqlAlchemyEmpresaConfigReposito
 
 async def get_actualizar_sri_id(repo: Annotated[SqlAlchemyEmpresaConfigRepository, Depends(get_empresa_repo)]) -> ActualizarSriIdUseCase:
     return ActualizarSriIdUseCase(repo)
+
+
+async def get_subir_logo(repo: Annotated[SqlAlchemyEmpresaConfigRepository, Depends(get_empresa_repo)]) -> SubirLogoUseCase:
+    return SubirLogoUseCase(repo)
+
+
+async def get_eliminar_logo(repo: Annotated[SqlAlchemyEmpresaConfigRepository, Depends(get_empresa_repo)]) -> EliminarLogoUseCase:
+    return EliminarLogoUseCase(repo)
 
 
 async def get_listar_puntos(repo: Annotated[SqlAlchemyPuntoConfigRepository, Depends(get_punto_repo)]) -> ListarPuntosUseCase:

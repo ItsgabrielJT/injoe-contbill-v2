@@ -1,6 +1,6 @@
 "use client";
 
-import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import { etiquetaEstado, nombreCliente, type Factura, type TotalesFactura } from "@/modules/facturacion/domain/entities";
 
 const styles = StyleSheet.create({
@@ -14,6 +14,7 @@ const styles = StyleSheet.create({
   td: { fontSize: 7 },
   right: { textAlign: "right" },
   footer: { flexDirection: "row", backgroundColor: "#111", color: "#fff", paddingVertical: 4, paddingHorizontal: 3 },
+  logo: { width: 110, height: 42, objectFit: "contain", marginBottom: 6 },
 });
 
 const cols = {
@@ -38,12 +39,14 @@ interface Props {
   totales: TotalesFactura;
   empresa: string;
   filtros: string;
+  logo?: string;
 }
 
-export function FacturaReporteDocument({ facturas, totales, empresa, filtros }: Props) {
+export function FacturaReporteDocument({ facturas, totales, empresa, filtros, logo }: Props) {
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
+        {logo && <Image src={logo} style={styles.logo} />}
         <Text style={styles.title}>Reporte de facturas — {empresa}</Text>
         <Text style={styles.meta}>{filtros} · {facturas.length} documentos · Generado {new Date().toLocaleString("es-EC")}</Text>
         <View style={styles.table}>

@@ -18,6 +18,16 @@ SMTP_USE_TLS=true
 
 En local el job corre cada 60 segundos. En producción debe quedar en 3600 (1 hora).
 
+## Logos de empresa
+
+Los logos se guardan localmente en el backend. Configura la ruta y móntala como volumen persistente en el despliegue:
+
+```
+LOGO_STORAGE_DIR=storage/logos
+```
+
+El volumen debe conservar el directorio `backend/storage/logos` entre recreaciones o actualizaciones del contenedor.
+
 ## Certificado
 
 El `.p12` y la contraseña se suben desde Configuración hacia SriSignXml. ContBill solo guarda `empresas.sri_id`.

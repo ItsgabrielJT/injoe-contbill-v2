@@ -53,6 +53,7 @@ import { Input } from "@/shared/components/ui/input";
 import { ApiError } from "@/shared/infrastructure/http/http-error";
 import { listarTodasLasPaginas } from "@/shared/lib/listar-todas-las-paginas";
 import { cn } from "@/shared/lib/utils";
+import { cargarLogoEmpresa } from "@/shared/lib/logo-empresa";
 
 type Tab = "productos" | "alertas" | "categorias" | "bodegas" | "proveedores";
 
@@ -109,6 +110,7 @@ export function ProductosPage() {
   const [reporteCargando, setReporteCargando] = useState(false);
   const [catalogoProductos, setCatalogoProductos] = useState<Producto[]>([]);
   const [exportando, setExportando] = useState(false);
+  const [logoEmpresa, setLogoEmpresa] = useState<string | null>(null);
   const reporteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -155,6 +157,11 @@ export function ProductosPage() {
   useEffect(() => {
     void cargarMaestros();
   }, [cargarMaestros, puntoActivo?.id]);
+
+  useEffect(() => {
+    if (!token) return;
+    void cargarLogoEmpresa(token).then(setLogoEmpresa);
+  }, [token, puntoActivo?.id]);
 
   useEffect(() => {
     void cargarProductos();
@@ -717,6 +724,7 @@ export function ProductosPage() {
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 {reporteCargando && <p className="text-sm text-muted-foreground">Cargando reporte...</p>}
                 <div ref={reporteRef} className="bg-white text-black">
+                  <img src={logoEmpresa ?? "/logos/logo_injoe_web.png"} alt="Logo de la empresa" className="mb-4 h-16 max-w-[220px] object-contain object-left" crossOrigin="anonymous" />
                   <h1 className="text-xl font-bold">Listado de productos y kardex</h1>
                   <p className="mb-4 text-sm">
                     {puntoActivo?.nombre ?? "Punto activo"} · {new Date().toLocaleString("es-EC")}

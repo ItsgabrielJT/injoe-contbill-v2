@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "INJOE CONTBILL"
     SMTP_USE_TLS: bool = True
     PDF_RUC_PROVEEDOR: str = "1722879176001"
+    LOGO_STORAGE_DIR: str = "storage/logos"
 
     def cors_origins_list(self) -> list[str]:
         return [origen.strip() for origen in self.CORS_ORIGINS.split(",") if origen.strip()]
@@ -46,6 +47,11 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
+
+    @property
+    def logo_storage_path(self) -> Path:
+        ruta = Path(self.LOGO_STORAGE_DIR)
+        return ruta if ruta.is_absolute() else _ENV_FILE.parent / ruta
 
 
 settings = Settings()

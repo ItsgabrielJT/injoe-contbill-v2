@@ -1,5 +1,8 @@
 import { env } from "@/config/env";
 import { httpClient } from "@/shared/infrastructure/http/http-client";
+import { asegurarAccessToken, renovarSesion } from "@/modules/acceso/infrastructure/renovar-sesion";
+import { forzarCierreSesion } from "@/modules/acceso/infrastructure/sesion-storage";
+import { ApiError } from "@/shared/infrastructure/http/http-error";
 import type { CertificadoInfo, EmpresaConfig, PuntoConfig } from "@/modules/configuracion/domain/entities";
 
 interface EmpresaDto {
@@ -77,6 +80,63 @@ export async function actualizarEmpresa(token: string, body: Record<string, unkn
 export async function guardarSriId(token: string, sriId: number): Promise<EmpresaConfig> {
   const resp = await httpClient<{ data: EmpresaDto }>(`/empresa/sri-id`, { method: "PATCH", token, body: { sri_id: sriId } });
   return mapEmpresa(resp.data);
+}
+
+async function logoFetch(token: string, init: RequestInit = {}): Promise<Response> {
+  let accessToken = await asegurarAccessToken(token);
+  const enviar = () => fetch(`${env.apiUrl}/empresa/logo`, {
+    ...init,
+    headers: { ...(init.headers ?? {}), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+  });
+  let response = await enviar();
+  if (response.status === 401) {
+    try {
+      accessToken = (await renovarSesion()).accessToken;
+      response = await enviar();
+    } catch {
+      forzarCierreSesion();
+      throw new ApiError(401, "Sesión expirada");
+    }
+  }
+  return response;
+}
+
+async function logoError(response: Response): Promise<never> {
+  const data = await response.json().catch(() => ({}));
+  const detail = typeof data.detail === "string" ? data.detail : "No se pudo procesar el logo";
+  throw new ApiError(response.status, detail);
+}
+
+async function blobDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("No se pudo leer el logo"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function obtenerLogoEmpresa(token: string): Promise<string | null> {
+  const response = await logoFetch(token);
+  if (response.status === 404) return null;
+  if (!response.ok) return logoError(response);
+  return blobDataUrl(await response.blob());
+}
+
+export async function subirLogoEmpresa(token: string, archivo: File): Promise<EmpresaConfig> {
+  const form = new FormData();
+  form.append("archivo", archivo);
+  const response = await logoFetch(token, { method: "POST", body: form });
+  if (!response.ok) return logoError(response);
+  const data = await response.json() as { data: EmpresaDto };
+  return mapEmpresa(data.data);
+}
+
+export async function eliminarLogoEmpresa(token: string): Promise<EmpresaConfig> {
+  const response = await logoFetch(token, { method: "DELETE" });
+  if (!response.ok) return logoError(response);
+  const data = await response.json() as { data: EmpresaDto };
+  return mapEmpresa(data.data);
 }
 
 export async function listarPuntos(token: string): Promise<PuntoConfig[]> {

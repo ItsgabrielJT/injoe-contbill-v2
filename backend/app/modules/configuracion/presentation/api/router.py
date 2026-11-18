@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, File, UploadFile, Response, status
+from fastapi.responses import FileResponse
 
 from app.modules.configuracion.application.dto import ActualizarSriIdCommand, ContextoTenant
 from app.modules.configuracion.application.use_cases.gestionar_empresa import (
@@ -17,9 +18,11 @@ from app.modules.configuracion.presentation.api.dependencies import (
     get_actualizar_empresa,
     get_actualizar_sri_id,
     get_eliminar_punto,
+    get_eliminar_logo,
     get_guardar_punto,
     get_listar_puntos,
     get_obtener_empresa,
+    get_subir_logo,
     get_tenant,
 )
 from app.modules.configuracion.presentation.api.schemas import (
@@ -32,6 +35,9 @@ from app.modules.configuracion.presentation.api.schemas import (
     PuntoResponse,
     SriIdRequest,
 )
+from app.modules.configuracion.application.use_cases.gestionar_empresa import EliminarLogoUseCase, SubirLogoUseCase
+from app.modules.configuracion.infrastructure.logo_storage import ruta_logo_empresa
+from app.modules.configuracion.domain.exceptions import EmpresaNoEncontrada
 
 empresa_router = APIRouter(prefix="/empresa", tags=["configuración"])
 puntos_router = APIRouter(prefix="/puntos-emision", tags=["configuración"])
@@ -64,6 +70,36 @@ async def actualizar_sri_id(
 ) -> EmpresaDataResponse:
     empresa = await use_case.execute(ActualizarSriIdCommand(sri_id=request.sri_id), tenant.empresa_id)
     return EmpresaDataResponse(data=EmpresaResponse.from_domain(empresa), message="Certificado vinculado")
+
+
+@empresa_router.post("/logo", response_model=EmpresaDataResponse)
+async def subir_logo(
+    tenant: Annotated[ContextoTenant, Depends(get_tenant)],
+    use_case: Annotated[SubirLogoUseCase, Depends(get_subir_logo)],
+    archivo: UploadFile = File(...),
+) -> EmpresaDataResponse:
+    contenido = await archivo.read()
+    empresa = await use_case.execute(tenant.empresa_id, contenido, archivo.filename, archivo.content_type)
+    return EmpresaDataResponse(data=EmpresaResponse.from_domain(empresa), message="Logo guardado")
+
+
+@empresa_router.get("/logo")
+async def obtener_logo(
+    tenant: Annotated[ContextoTenant, Depends(get_tenant)],
+):
+    ruta = ruta_logo_empresa(tenant.empresa_id)
+    if not ruta.is_file():
+        raise EmpresaNoEncontrada("La empresa no tiene un logo cargado")
+    return FileResponse(ruta, media_type="image/png", filename="logo.png")
+
+
+@empresa_router.delete("/logo", response_model=EmpresaDataResponse)
+async def eliminar_logo(
+    tenant: Annotated[ContextoTenant, Depends(get_tenant)],
+    use_case: Annotated[EliminarLogoUseCase, Depends(get_eliminar_logo)],
+) -> EmpresaDataResponse:
+    empresa = await use_case.execute(tenant.empresa_id)
+    return EmpresaDataResponse(data=EmpresaResponse.from_domain(empresa), message="Logo eliminado")
 
 
 @puntos_router.get("/", response_model=PuntoListResponse)

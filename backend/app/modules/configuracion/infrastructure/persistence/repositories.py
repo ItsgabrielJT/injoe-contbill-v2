@@ -65,6 +65,7 @@ class SqlAlchemyEmpresaConfigRepository:
         modelo.correo = empresa.correo
         modelo.sri_id = empresa.sri_id
         modelo.entorno_sri = empresa.entorno_sri
+        modelo.ruta_logo = empresa.ruta_logo
         await self.session.commit()
         await self.session.refresh(modelo)
         return _empresa(modelo)

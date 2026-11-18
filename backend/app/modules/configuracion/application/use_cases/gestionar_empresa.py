@@ -1,8 +1,14 @@
 from app.modules.configuracion.application.dto import ActualizarEmpresaCommand, ActualizarSriIdCommand
+from app.core.config import settings
 from app.modules.configuracion.application.ports.repositorios import EmpresaConfigRepository
 from app.modules.configuracion.domain.entities import EmpresaConfig
 from app.modules.configuracion.domain.exceptions import DatosEmpresaInvalidos, EmpresaNoEncontrada
 from app.modules.configuracion.domain.ambiente import codigo_ambiente
+from app.modules.configuracion.infrastructure.logo_storage import (
+    eliminar_logo_local,
+    guardar_logo_local,
+    validar_y_normalizar_logo,
+)
 
 
 class ObtenerEmpresaUseCase:
@@ -53,3 +59,40 @@ class ActualizarSriIdUseCase:
             raise DatosEmpresaInvalidos("El sri_id no es válido")
         empresa.sri_id = command.sri_id
         return await self.repository.actualizar(empresa)
+
+
+class SubirLogoUseCase:
+    def __init__(self, repository: EmpresaConfigRepository) -> None:
+        self.repository = repository
+
+    async def execute(self, empresa_id: int, contenido: bytes, nombre: str | None, content_type: str | None) -> EmpresaConfig:
+        empresa = await self.repository.obtener(empresa_id)
+        if empresa is None:
+            raise EmpresaNoEncontrada()
+        try:
+            normalizado = validar_y_normalizar_logo(contenido, nombre, content_type)
+        except ValueError as exc:
+            raise DatosEmpresaInvalidos(str(exc)) from exc
+        ruta = guardar_logo_local(empresa_id, normalizado)
+        empresa.ruta_logo = str(ruta.relative_to(settings.logo_storage_path.parent))
+        try:
+            actualizada = await self.repository.actualizar(empresa)
+        except Exception:
+            if ruta.is_file():
+                ruta.unlink()
+            raise
+        return actualizada
+
+
+class EliminarLogoUseCase:
+    def __init__(self, repository: EmpresaConfigRepository) -> None:
+        self.repository = repository
+
+    async def execute(self, empresa_id: int) -> EmpresaConfig:
+        empresa = await self.repository.obtener(empresa_id)
+        if empresa is None:
+            raise EmpresaNoEncontrada()
+        empresa.ruta_logo = None
+        actualizada = await self.repository.actualizar(empresa)
+        eliminar_logo_local(empresa_id)
+        return actualizada

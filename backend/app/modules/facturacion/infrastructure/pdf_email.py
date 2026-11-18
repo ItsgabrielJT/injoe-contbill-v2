@@ -94,6 +94,7 @@ def _logo(empresa) -> Path | bytes | None:
         else:
             ruta_path = Path(ruta)
             candidatos = [ruta_path]
+            candidatos.append(settings.logo_storage_path.parent / ruta.lstrip("/"))
             if not ruta_path.is_absolute():
                 candidatos.append(Path(__file__).resolve().parents[5] / "frontend" / "public" / ruta.lstrip("/"))
             elif ruta.startswith("/"):
@@ -374,10 +375,12 @@ def generar_pdf_factura(factura: Factura, empresa, punto) -> bytes:
     return buffer.getvalue()
 
 
-def _logo_correo() -> tuple[bytes, str] | None:
-    for path in (LOGO_BLANCO, LOGO_SISTEMA):
-        if path.exists() and path.stat().st_size > 0:
-            return path.read_bytes(), "png"
+def _logo_correo(empresa) -> tuple[bytes, str] | None:
+    logo = _logo(empresa)
+    if isinstance(logo, bytes):
+        return logo, "png"
+    if isinstance(logo, Path) and logo.exists() and logo.stat().st_size > 0:
+        return logo.read_bytes(), "png"
     return None
 
 
@@ -496,7 +499,7 @@ def enviar_correo_factura(factura: Factura, xml: str | None, pdf_bytes: bytes, e
     if not destinatario:
         return
     emisor = empresa or type("Empresa", (), {"nombre": NOMBRE_SISTEMA, "ruc": ""})()
-    logo = _logo_correo()
+    logo = _logo_correo(emisor)
     cid_logo = make_msgid(domain="injoe.contbill")[1:-1] if logo else None
     msg = EmailMessage()
     msg["To"] = destinatario

@@ -31,6 +31,7 @@ import { Portal } from "@/shared/components/portal";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ApiError } from "@/shared/infrastructure/http/http-error";
+import { cargarLogoEmpresa } from "@/shared/lib/logo-empresa";
 
 type Periodo = "mes" | "trimestre" | "semestre" | "anio" | "rango";
 
@@ -77,7 +78,13 @@ export function MovimientosPage() {
   const [detalle, setDetalle] = useState<MovimientoInventario | null>(null);
   const [reporte, setReporte] = useState<MovimientoInventario[] | null>(null);
   const [exportando, setExportando] = useState(false);
+  const [logoEmpresa, setLogoEmpresa] = useState<string | null>(null);
   const reporteRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    void cargarLogoEmpresa(token).then(setLogoEmpresa);
+  }, [token, puntoActivo?.id]);
 
   const filtros = useCallback(() => {
     const fechas = rangoPeriodo(periodo, desde, hasta);
@@ -363,6 +370,7 @@ export function MovimientosPage() {
                 </div>
               </div>
               <div ref={reporteRef} className="bg-white text-black">
+                <img src={logoEmpresa ?? "/logos/logo_injoe_web.png"} alt="Logo de la empresa" className="mb-4 h-16 max-w-[220px] object-contain object-left" crossOrigin="anonymous" />
                 <h1 className="text-xl font-bold">Movimientos de stock</h1>
                 <p className="text-sm mb-4">{new Date().toLocaleString("es-EC")}</p>
                 {reporte.map((mov) => (
